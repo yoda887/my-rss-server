@@ -3,7 +3,7 @@ const axios = require('axios');
 const xml2js = require('xml2js');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3001;
 const rssUrl = 'https://feeds.feedburner.com/gov/gnjU';
 
 app.get('/fetch-rss', async (req, res) => {
@@ -26,6 +26,6 @@ app.get('/fetch-rss', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Сервер запущен на http://localhost:${port}`);
-});
+const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+server.keepAliveTimeout = 120 * 1000;
+server.headersTimeout = 120 * 1000;
