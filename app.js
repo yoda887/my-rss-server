@@ -23,7 +23,7 @@ app.get('/fetch-rss', async (req, res) => {
             // Асинхронно получаем содержимое каждого файла
             await Promise.all(items.map(async (item) => {
                 try {
-                    const contentResponse = await axios.get(item.link[0]);
+                    const contentResponse = await axios.get(item.link[0] + '/print');
                     item.description[0] += `<content>${contentResponse.data}</content>`;
                 } catch (contentError) {
                     console.error(`Ошибка при получении содержимого для ${item.link[0]}: ${contentError.message}`);
