@@ -13,13 +13,33 @@ app.get('/fetch-rss', async (req, res) => {
         const rssData = response.data;
 
         // Парсим XML данные
-        xml2js.parseString(rssData, (err, result) => {
+        xml2js.parseString(rssData, async (err, result) => {
             if (err) {
                 return res.status(500).send('Ошибка при парсинге XML данных');
             }
 
-            // Отправляем результат клиенту
-            res.json(result);
+            const items = result.rss.channel[0].item;
+
+            // Асинхронно получаем содержимое каждого файла
+            await Promise.all(items.map(async (item) => {
+                try {
+                    const contentResponse = await axios.get(item.link[0]);
+                    item.description[0] += `<content>${contentResponse.data}</content>`;
+                } catch (contentError) {
+                    console.error(`Ошибка при получении содержимого для ${item.link[0]}: ${contentError.message}`);
+                }
+            }));
+
+            // Преобразуем обратно в XML
+            const builder = new xml2js.Builder({
+                headless: true,
+                renderOpts: { pretty: true }
+            });
+            const xml = builder.buildObject(result);
+
+            // Установка заголовков для XML ответа
+            res.header('Content-Type', 'application/xml');
+            res.send(xml);
         });
     } catch (error) {
         res.status(500).send('Ошибка при получении данных с RSS-канала');
