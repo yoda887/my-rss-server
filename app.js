@@ -27,8 +27,10 @@ app.get('/fetch-rss', async (req, res) => {
                     const contentResponse = await axios.get(item.link[0] + '/print');
                     const $ = cheerio.load(contentResponse.data);
 
-                    const billText = $('div.rvps2').text().trim();
+                    // Извлекаем текст из элемента <div id="article">
+                    const billText = $('#article').text().trim();
 
+                    // Добавляем извлеченный текст к описанию элемента
                     item.description[0] += `<content>${billText}</content>`;
                 } catch (contentError) {
                     console.error(`Ошибка при получении содержимого для ${item.link[0]}: ${contentError.message}`);
