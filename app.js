@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const xml2js = require('xml2js');
+const cheerio = require('cheerio');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -24,7 +25,11 @@ app.get('/fetch-rss', async (req, res) => {
             await Promise.all(items.map(async (item) => {
                 try {
                     const contentResponse = await axios.get(item.link[0] + '/print');
-                    item.description[0] += `<content>${contentResponse.data}</content>`;
+                    const $ = cheerio.load(contentResponse.data);
+
+                    const billText = $('div.rvps2').text().trim();
+
+                    item.description[0] += `<content>${billText}</content>`;
                 } catch (contentError) {
                     console.error(`Ошибка при получении содержимого для ${item.link[0]}: ${contentError.message}`);
                 }
