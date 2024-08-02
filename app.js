@@ -5,17 +5,12 @@ const cheerio = require('cheerio');
 
 const app = express();
 const port = process.env.PORT || 3001;
+const rssUrl = 'https://feeds.feedburner.com/gov/gnjU';
 
 app.get('/fetch-rss', async (req, res) => {
-    const { url, index, limit } = req.query;
-
-    if (!url || index === undefined) {
-        return res.status(400).send('Bad Request. The request could not be understood or was missing required parameters.');
-    }
-
     try {
         // Получаем данные с RSS-канала
-        const response = await axios.get(url);
+        const response = await axios.get(rssUrl);
         const rssData = response.data;
 
         // Парсим XML данные
@@ -25,12 +20,9 @@ app.get('/fetch-rss', async (req, res) => {
             }
 
             const items = result.rss.channel[0].item;
-            const startIndex = parseInt(index);
-            const itemLimit = limit ? Math.min(parseInt(limit), items.length - startIndex) : 1;
-            const selectedItems = items.slice(startIndex, startIndex + itemLimit);
 
             // Асинхронно получаем содержимое каждого файла
-            await Promise.all(selectedItems.map(async (item) => {
+            await Promise.all(items.map(async (item) => {
                 try {
                     const contentResponse = await axios.get(item.link[0] + '/print');
                     const $ = cheerio.load(contentResponse.data);
@@ -50,7 +42,7 @@ app.get('/fetch-rss', async (req, res) => {
                 headless: true,
                 renderOpts: { pretty: true }
             });
-            const xml = builder.buildObject({ rss: { channel: [{ item: selectedItems }] } });
+            const xml = builder.buildObject(result);
 
             // Установка заголовков для XML ответа
             res.header('Content-Type', 'application/xml');
