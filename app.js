@@ -5,12 +5,17 @@ const cheerio = require('cheerio');
 
 const app = express();
 const port = process.env.PORT || 3001;
-const rssUrl = 'https://feeds.feedburner.com/gov/gnjU';
 
 app.get('/fetch-rss', async (req, res) => {
+    const { url, index } = req.query;
+
+    if (!url || index === undefined) {
+        return res.status(400).send('Bad Request. The request could not be understood or was missing required parameters.');
+    }
+
     try {
         // Получаем данные с RSS-канала
-        const response = await axios.get(rssUrl);
+        const response = await axios.get(url);
         const rssData = response.data;
 
         // Парсим XML данные
@@ -20,33 +25,36 @@ app.get('/fetch-rss', async (req, res) => {
             }
 
             const items = result.rss.channel[0].item;
+            const item = items[parseInt(index)];
 
-            // Асинхронно получаем содержимое каждого файла
-            await Promise.all(items.map(async (item) => {
-                try {
-                    const contentResponse = await axios.get(item.link[0] + '/print');
-                    const $ = cheerio.load(contentResponse.data);
+            if (!item) {
+                return res.status(400).send('Bad Request. The specified index is out of range.');
+            }
 
-                    // Извлекаем текст из элемента <div id="article">
-                    const billText = $('#article').text().trim();
+            try {
+                const contentResponse = await axios.get(item.link[0] + '/print');
+                const $ = cheerio.load(contentResponse.data);
 
-                    // Добавляем извлеченный текст к описанию элемента
-                    item.description[0] += `<content>${billText}</content>`;
-                } catch (contentError) {
-                    console.error(`Ошибка при получении содержимого для ${item.link[0]}: ${contentError.message}`);
-                }
-            }));
+                // Извлекаем текст из элемента <div id="article">
+                const billText = $('#article').text().trim();
 
-            // Преобразуем обратно в XML
-            const builder = new xml2js.Builder({
-                headless: true,
-                renderOpts: { pretty: true }
-            });
-            const xml = builder.buildObject(result);
+                // Добавляем извлеченный текст к описанию элемента
+                item.description[0] += `<content>${billText}</content>`;
 
-            // Установка заголовков для XML ответа
-            res.header('Content-Type', 'application/xml');
-            res.send(xml);
+                // Преобразуем обратно в XML
+                const builder = new xml2js.Builder({
+                    headless: true,
+                    renderOpts: { pretty: true }
+                });
+                const xml = builder.buildObject({ rss: { channel: [{ item: [item] }] } });
+
+                // Установка заголовков для XML ответа
+                res.header('Content-Type', 'application/xml');
+                res.send(xml);
+            } catch (contentError) {
+                console.error(`Ошибка при получении содержимого для ${item.link[0]}: ${contentError.message}`);
+                res.status(500).send('Internal Server Error. The server encountered an error processing the request.');
+            }
         });
     } catch (error) {
         res.status(500).send('Ошибка при получении данных с RSS-канала');
